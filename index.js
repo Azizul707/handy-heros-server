@@ -26,55 +26,78 @@ const client = new MongoClient(uri, {
     strict: true,
     deprecationErrors: true,
   },
-} );
+});
 
+const servicesCollections = client.db("handyHerosDB").collection("services");
 
-const servicesCollections = client.db( 'handyHerosDB' ).collection( 'services' );
-
-const bookingsCollections = client.db( 'handyHerosDB' ).collection( 'bookings' );
+const bookingsCollections = client.db("handyHerosDB").collection("bookings");
 
 async function run() {
   try {
-      await client.connect();
+    await client.connect();
 
-    app.get( '/services', async ( req, res ) => {
-        
-      const cursor = servicesCollections.find();
+    app.get( "/services", async ( req, res ) => {
+      
+      let query = {};
+      
+      if ( req.query?.email ) {
+        query = { email: req.query.email };
+      } else if ( req.query?.ServiceName ) {
+        query = {ServiceName: req.query.ServiceName}
+      }
+      const cursor = servicesCollections.find(query);
       const result = await cursor.toArray();
-      res.send( result );
+      res.send(result);
     } );
 
-    app.get( '/services/details/:id', async ( req, res ) => {
-      
+    app.get("/services/details/:id", async (req, res) => {
       const id = req.params.id;
-      const query = { _id: new ObjectId( id ) };
-      const result = await servicesCollections.findOne( query );
-      res.send( result );
-    } )
+      const query = { _id: new ObjectId(id) };
+      const result = await servicesCollections.findOne(query);
+      res.send(result);
+    } );
     
+    // app.put( '/services/update/:id', async ( req, res ) => {
+    //   const id = req.params.id;
+
+    //   const result = servicesCollections.updateOne();
+    // })
+    app.delete( '/services/delete/:id', async ( req, res ) => {
+      const id = res.params.id;
+      const query = { id: new ObjectId( id ) };
+      const result = servicesCollections.deleteOne( query );
+      res.send( result );
+    })
+
+    app.post("/services", async (req, res) => {
+      const addServices = req.body;
+      const result = await servicesCollections.insertOne(addServices);
+      res.send(result);
+    });
+
     // app.get( '/services', async ( req, res ) => {
-      
+
     //   let query = {};
     //   if(req.query.serviceName)
     //   const result = await servicesCollections.find( query ).toArray();
 
     // })
 
-    app.post( '/bookings', async ( req, res ) => {
-      
+    app.post("/bookings", async (req, res) => {
       const bookings = req.body;
-      const result = await bookingsCollections.insertOne( bookings );
-      res.send( result );
-    } )
-    
-    app.get( '/bookings', async ( req, res ) => {
-      const cursor = bookingsCollections.find();
+      const result = await bookingsCollections.insertOne(bookings);
+      res.send(result);
+    });
+
+    app.get("/bookings", async (req, res) => {
+      let query = {};
+      if (req.query?.email) {
+        query = { email: req.query.email };
+      }
+      const cursor = bookingsCollections.find(query);
       const result = await cursor.toArray();
-      res.send( result );
-    })
-
-
-
+      res.send(result);
+    });
 
     await client.db("admin").command({ ping: 1 });
     console.log(
