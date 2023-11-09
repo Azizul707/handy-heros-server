@@ -36,52 +36,63 @@ async function run() {
   try {
     await client.connect();
 
-    app.get( "/services", async ( req, res ) => {
-      
+    app.get("/services", async (req, res) => {
       let query = {};
-      
-      if ( req.query?.email ) {
+
+      if (req.query?.email) {
         query = { email: req.query.email };
-      } else if ( req.query?.ServiceName ) {
-        query = {ServiceName: req.query.ServiceName}
+      } else if (req.query?.ServiceName) {
+        query = { ServiceName: req.query.ServiceName };
       }
       const cursor = servicesCollections.find(query);
       const result = await cursor.toArray();
       res.send(result);
-    } );
+    });
 
     app.get("/services/details/:id", async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await servicesCollections.findOne(query);
       res.send(result);
-    } );
-    
-    // app.put( '/services/update/:id', async ( req, res ) => {
-    //   const id = req.params.id;
+    });
 
-    //   const result = servicesCollections.updateOne();
-    // })
-    app.delete( '/services/delete/:id', async ( req, res ) => {
-      const id = res.params.id;
-      const query = { id: new ObjectId( id ) };
-      const result = servicesCollections.deleteOne( query );
+    app.put("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      const updatedService = req.body;
+      const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const service = {
+        $set: {
+          ServiceProvider: updatedService.name,
+          email: updatedService.email,
+          ServiceImage: updatedService.ServiceImage,
+          ServiceName: updatedService.ServiceName,
+          ServiceLocation: updatedService.ServiceLocation,
+          ServicePrice: updatedService.ServicePrice,
+          ServiceDescription: updatedService.ServiceDescription,
+          ServiceProvider: updatedService.ServiceProvider
+        },
+      };
+
+      const result = await servicesCollections.updateOne( filter, service, options );
+      console.log(result)
       res.send( result );
-    })
+    });
+
+    // delete
+
+    app.delete("/services/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await servicesCollections.deleteOne(query);
+      res.send(result);
+    });
 
     app.post("/services", async (req, res) => {
       const addServices = req.body;
       const result = await servicesCollections.insertOne(addServices);
       res.send(result);
     });
-
-    // app.get( '/services', async ( req, res ) => {
-
-    //   let query = {};
-    //   if(req.query.serviceName)
-    //   const result = await servicesCollections.find( query ).toArray();
-
-    // })
 
     app.post("/bookings", async (req, res) => {
       const bookings = req.body;
