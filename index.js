@@ -1,12 +1,23 @@
 const express = require("express");
 const app = express();
-const cors = require("cors");
+const cors = require( "cors" );
+const jwt = require( 'jsonwebtoken' );
+const cookieParser = require('cookie-parser');
 const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 
 const port = process.env.PORT || 5000;
 
-app.use(express.json());
-app.use(cors());
+app.use(cors({
+  origin: [
+    'https://handy-heroes-b5e4a.web.app',
+    'https://handy-heroes-b5e4a.firebaseapp.com'
+  ],
+  credentials: true,
+} ) );
+
+app.use( express.json() );
+app.use(cookieParser());
+
 
 app.get("/", (req, res) => {
   res.send("Hello World!");
@@ -31,6 +42,27 @@ const client = new MongoClient(uri, {
 const servicesCollections = client.db("handyHerosDB").collection("services");
 
 const bookingsCollections = client.db("handyHerosDB").collection("bookings");
+
+// verify token
+const logger = ( req, res, next ) => {
+  console.log('logged info', req.method, req.url );
+  next();
+}
+
+const verifyToken = ( req, res, next ) => {
+  const token = req?.cookies?.token;
+  if ( !token ) {
+    res.status(401).send({message:'unAuthorized access'})
+  } else {
+    jwt.verify( token, process.env.ACCESS_TOKEN_SECRET, ( err, decoded ) => {
+      if ( err ) {
+        return res.status(401).send({message:"unauthorized access"})
+      }
+      req.user = decoded;
+      next();
+    })
+  }
+}
 
 async function run() {
   try {
@@ -100,15 +132,38 @@ async function run() {
       res.send(result);
     });
 
-    app.get("/bookings", async (req, res) => {
+    app.get("/bookings",logger,verifyToken, async (req, res) => {
       let query = {};
+      if ( query.req.email !== req.query.email ) {
+        return res.send({message:"forbidden access"})
+      }
+      console.log(req.cookies);
       if (req.query?.email) {
         query = { email: req.query.email };
       }
       const cursor = bookingsCollections.find(query);
       const result = await cursor.toArray();
       res.send(result);
-    });
+    } );
+    
+    // jwt
+    app.post( '/jwt', async ( req, res ) => {
+      const user = req.body;
+      console.log( 'user token', user );
+      const token = jwt.sign( user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' } )
+      res.cookie( 'token', token, {
+        httpOnly: true,
+        secure: true,
+        sameSite:'none'
+      })
+      res.send( { success:true } );
+    } )
+    
+    app.post( '/logout', async ( req, res ) => {
+      const user = req.body;
+      console.log('loggin out', user);
+      res.clearCookie('token',{maxAge:0}).send({success:true})
+    })
 
     await client.db("admin").command({ ping: 1 });
     console.log(
